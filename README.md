@@ -326,6 +326,8 @@ MITRE ATT&CK is a catalog of observed adversary behaviors, organized by tactic (
 
 That converts into a defensible instruction for Tier 2: *review registry telemetry on the affected hosts for these key types.* A technique ID pasted into a report with no interpretation gives the next analyst nothing; the interpretation is the value you add — as long as it points to a check rather than asserting the behavior happened.
 
+**Do the checks you can do before escalating.** If your SOC has EDR, process ancestry is a Tier 1 check, not a Tier 2 one. Before writing "escalate for process analysis," pull the process tree for the host around the alert time yourself: did `EXCEL.EXE` run, and did it or `EQNEDT32.EXE` spawn anything? If the telemetry exists and you skip it, you have handed Tier 2 work you should have done. If it does not exist — as in this training case, where no endpoint telemetry was available — say so explicitly, so nobody reads the absence of a process finding as evidence that nothing ran.
+
 ### One alert, several techniques
 
 The alert supplied only T1112, but the sample's characteristics support a fuller mapping. Building one is normal analyst work — provided you record how confident each row is:
@@ -391,7 +393,7 @@ Containment is a holding action. Eradication and recovery come after investigati
 
 HOST-B was reportedly isolated during triage based on the initial proxy correlation. That record was later excluded. The action and its stated rationale remain documented; whether the original decision was justified depends on the information, authority, and operational impact at the time — which this write-up does not fully capture, so it does not pronounce on it.
 
-What is clear is what happens next: continued isolation has to be reassessed under the response process. After Tier 2 checks whether a correctly dated record exists, and if no incident-related evidence is found, the host is released through the approved process. The general principle still holds — you may contain on credible suspicion, because waiting for certainty is how incidents spread — but containment that outlives its supporting evidence has to be revisited, not left to stand by inertia.
+What is clear is what happens next: continued isolation has to be reassessed under the response process, and it should be reassessed on a clock. A host kept off the network on evidence known to be out-of-window is a business disruption with nothing behind it. The recommendation to make in the report is that release be the *default* — the response lead sets a bounded window, Tier 2 looks for a validated in-window artifact, and if none turns up the host comes back through the approved process. The burden sits with telemetry to justify keeping the host isolated, not with the host to prove innocence. The general principle still holds — you may contain on credible suspicion, because waiting for certainty is how incidents spread — but containment that outlives its supporting evidence has to be revisited, not left to stand by inertia.
 
 Two points to carry from this. First, containment and reporting run on different standards. You contain on credible suspicion, because waiting for certainty is how incidents spread. You write on evidence, because a report that overstates gets acted on wrongly. Second, an action taken on evidence that later fails validation stays in the record with its reasoning. You do not erase it; you document what was done, why, and what changed.
 
@@ -480,6 +482,7 @@ Test yourself before reading back through:
 17. You are about to write "an address associated with the malicious sample." What should you check first, and what do you write if you cannot check it?
 18. A record you cited in the severity argument is later excluded because it cannot be correlated with the incident. What has to change in the report, and how do you show that change?
 19. A host was isolated on evidence that later failed validation. What information would you need to judge whether the original decision was justified, what happens to the host now, and what happens to the record of the action?
+20. Your SOC has EDR. An alert names a host and a document. What process-tree check do you run before escalating, and what do you write if that telemetry turns out not to exist?
 
 ---
 
