@@ -83,6 +83,8 @@ VirusTotal tags suggest two potential execution mechanisms. These are automated-
 
 **Operational consequence:** "the user did not enable macros" is not sufficient to rule out execution. Equation Editor patch status and Protected View configuration must be checked before execution can be excluded.
 
+**Telemetry availability at Tier 1.** Where EDR is deployed, process ancestry for HOST-A around 2021-03-13 20:20:58 should be checked at Tier 1 before escalation — specifically whether `EXCEL.EXE` ran and whether it or `EQNEDT32.EXE` spawned any child process. **In this case, no endpoint process telemetry was available in the case data.** That check therefore could not be performed at triage and is escalated in Section 7. This is stated so the reader does not infer that the absence of a process finding means no process ran.
+
 ### 3.3 Behavioral tags
 
 The tags below are reported by VirusTotal from its sandbox detonation and static analysis. This report did not independently examine the underlying traces, so each is a reported indicator and a lead for endpoint verification — not a finding about HOST-A or HOST-B.
@@ -107,7 +109,7 @@ The workbook is 2,793,487 bytes (2.66 MiB) compressed and expands to 2.01 GB acr
 
 Alternate filenames recorded on VirusTotal include French-language variants (`Nouvelle version du cahier des charges.xlsm`) alongside the English `ORDER SHEET & SPEC.xlsm`. This **may indicate distribution across multiple language groups**, though the list reflects how submitters named the file rather than how it was distributed. Each variant is an additional string for the mail-gateway search.
 
-VirusTotal records a sample creation timestamp of 2020-02-01 and a first submission of 2021-01-28, approximately six weeks before the incident date. Two caveats apply. File creation timestamps can be altered or inherited from a template, so they are weak evidence. And first submission establishes only that the sample was known to the platform by that date — it does not establish what the detection ratio was at that time, or that the sample was classified malicious then. The 45/64 ratio cited in this report reflects a later analysis.
+VirusTotal records two dates worth separating. **First submission** was 2021-01-28, approximately six weeks before the incident date of 2021-03-13. The **file creation timestamp** in the document metadata is 2020-02-01 — roughly thirteen months before the incident. If that metadata is accurate, the document existed for over a year before it reached this environment, which would be consistent with a long-lived sample reused across campaigns; the multi-language filename variants in this section point the same way. Two caveats apply. File creation timestamps can be altered or inherited from a template, so the thirteen-month figure is weak evidence and is offered as context, not a finding. And first submission establishes only that the sample was known to the platform by that date — it does not establish what the detection ratio was at that time, or that the sample was classified malicious then. The 45/64 ratio cited in this report reflects a later analysis.
 
 The defensible statement is that the sample existed in VirusTotal before the incident date. Establishing what any given control should have caught in March 2021 would require time-specific reputation data.
 
@@ -121,7 +123,7 @@ HOST-A is the host named in the originating alert and is assessed as the point o
 
 - Device Action on this event: **Allowed** — the control did not block the transfer.
 - The case data contains **no recorded quarantine action**. It does not establish which endpoint controls inspected the file.
-- Whether the document was opened or executed on this host is **not established** by available evidence.
+- Whether the document was opened or executed on this host is **not established** by available evidence. No endpoint process telemetry for HOST-A was available in the case data, so process ancestry could not be checked at Tier 1.
 
 ### 4.2 HOST-B (10.20.30.58) — excluded from findings
 
@@ -157,7 +159,7 @@ HOST-B was isolated during triage on the basis of the correlation above. With th
 2. Whether `ORDER SHEET & SPEC.xlsm` was delivered to HOST-B independently.
 3. Whether any lateral movement from HOST-A occurred.
 
-If none of these produce evidence, HOST-B should be released from isolation through the normal process. Absence of validated evidence is not proof the host is clean, but it is also not grounds to keep it contained indefinitely.
+**Recommended disposition.** Continued isolation of a host on evidence known to be out-of-window carries real operational cost. The recommendation is that release be the *default outcome*: the response lead sets a bounded reassessment window on escalation, and unless Tier 2 surfaces a validated in-window artifact within it, HOST-B is released through the approved process. The burden sits with telemetry to justify continued containment, not with the host to prove it is clean. Absence of validated evidence is not proof the host is uncompromised, but it is not grounds for indefinite isolation either.
 
 ---
 
@@ -165,7 +167,7 @@ If none of these produce evidence, HOST-B should be released from isolation thro
 
 - **Network isolation:** Both HOST-A (10.20.30.41) and HOST-B (10.20.30.58) were isolated from the local network and from internet egress during triage.
 - **HOST-A basis:** Confirmed delivery of a file currently classified as malicious, through an allowed transfer, with no quarantine action recorded. Isolation is appropriate on this evidence.
-- **HOST-B basis:** Reportedly isolated on the initial proxy correlation, which was subsequently excluded (Section 4.2). The action and its stated rationale remain documented. This report does not pronounce on whether the original decision was justified — that depends on the information, authority, and operational impact at the time — and does not claim validated evidence of compromise on HOST-B. Continued isolation requires reassessment under the response process; if the Tier 2 checks in Section 4.3 find no incident-related evidence, the host is released through the approved process.
+- **HOST-B basis:** Reportedly isolated on the initial proxy correlation, which was subsequently excluded (Section 4.2). The action and its stated rationale remain documented. This report does not pronounce on whether the original decision was justified — that depends on the information, authority, and operational impact at the time — and does not claim validated evidence of compromise on HOST-B. Continued isolation requires reassessment under the response process within a window set by the response lead; release is the recommended default if the Tier 2 checks in Section 4.3 surface no validated in-window evidence (see Section 4.3, recommended disposition).
 - **Scope and preservation:** Isolation restricts connectivity while leaving the host available for forensic collection. It is a holding measure, not evidence preservation: the running system keeps changing while isolated, so memory and disk still need to be acquired and preserved separately. No eradication, reimaging, or file deletion has been performed at Tier 1.
 
 Documenting an action that later evidence does not support, rather than removing it from the record, is deliberate. The incident log should reflect what was done, on what basis, and what changed.
@@ -199,7 +201,12 @@ How far these move severity depends on the asset and environment, which the seve
 6. **Process and memory analysis.** Note `long-sleeps`: a quiet host is not evidence of a clean host.
 7. **Confirm execution** — determine whether automatic macro execution occurred, and whether a dropped file was written and executed. Obtain the dropped payload's hash.
 8. **Determine whether HOST-B was involved at all** per Section 4.3. Only if compromise is established should the infection vector be investigated.
-9. **Environment-wide sweep** for all three file hashes and for connections to the network indicators associated with the sample on VirusTotal.
+9. **Environment-wide sweep**, targeted by data source:
+   - **Endpoint file events** (EDR or Sysmon Event ID 11 / file-creation telemetry): search for all three hashes and for the filename strings `ORDER SHEET & SPEC.xlsm`, `ORDER_SHEET_SPEC.xlsm`, and `Nouvelle version du cahier des charges.xlsm`.
+   - **Process creation events** (Sysmon Event ID 1 / EDR process telemetry): command lines containing those filenames, and any `EXCEL.EXE` or `EQNEDT32.EXE` parent spawning `rundll32.exe`, `wmiprvse.exe`, `powershell.exe`, `cmd.exe`, or `mshta.exe`.
+   - **AMSI and PowerShell script-block logs** (Event ID 4104): script content executed from an Office parent process in the incident window. These log script *content*, not filenames, so search here for macro-spawned commands rather than the document name.
+   - **Proxy, firewall, and DNS logs**: the network indicators from the sample's VirusTotal Relations data, across the full incident window and both hosts.
+   - **Mail gateway logs**: attachment name and hash matches, to find other recipients (see item 10).
 10. **Mail gateway search** for other recipients, including the filename variants in Section 3.5.
 
 ---
