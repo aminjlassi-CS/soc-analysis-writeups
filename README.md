@@ -4,7 +4,7 @@
 **Author:** Amin Jlassi
 **Case:** Event ID 77 | 2021-03-13 20:20:58 (UTC+03:00)
 **Verdict:** True Positive
-**Purpose:** This document works through a real malware alert end to end and explains *why* each step matters, not just what to click. It is written for analysts new to Tier 1 SOC work.
+**Purpose:** This document works through a training scenario built on a real, publicly documented malware sample, and explains *why* each step matters rather than just what to click. It is written for analysts new to Tier 1 SOC work.
 
 ---
 
@@ -41,7 +41,7 @@ Three outcomes are possible:
 
 Never decide the verdict first and then look for evidence to support it. Gather the facts, then let them produce the verdict.
 
-**Note on severity:** The severity assigned by the alert rule is a *starting* value based on the rule's assumptions. It is set before anyone looks at the case. If your investigation finds facts the rule couldn't know, you are expected to adjust severity and say why. We do exactly that in Section 8.
+**Note on severity:** The severity assigned by the alert rule is a *starting* value based on the rule's assumptions. It is set before anyone looks at the case. If your investigation finds facts the rule couldn't know, you are expected to adjust severity and say why. We do exactly that in Section 9.
 
 ---
 
@@ -69,6 +69,8 @@ This is not a trivial distinction and it is the single most instructive detail i
 
 Microsoft split `.xlsx` and `.xlsm` deliberately in Office 2007 precisely so that macro-carrying files would be visibly distinguishable. When an attacker sends `.xlsm`, they are sending a file whose *entire purpose* is to carry executable code. A spreadsheet of order quantities does not need VBA macros. The format itself is a signal.
 
+The alert rule is named "Suspicious XLS File" because it covers the family of Excel formats. Writing "`.xls/.xlsm`" in your report, as if unsure, is a missed opportunity — you have the exact filename, so name the exact format and explain what it implies.
+
 **But do not stop at the macro.** This sample also carries the tag `cve-2017-11882`. That is an exploit for a stack-overflow flaw in the Microsoft Equation Editor (`EQNEDT32.EXE`), a component Office used to render mathematical formulas. It is delivered inside an embedded OLE object rather than through VBA.
 
 The difference is decisive:
@@ -82,7 +84,6 @@ This sample has both. An analyst who reasons "the user says they never enabled m
 
 The lesson generalises: **check the CVE tags before you reason about user behaviour.** Exploit-based delivery removes the user from the equation entirely.
 
-The alert rule is named "Suspicious XLS File" because it covers the family of Excel formats. Writing "`.xls/.xlsm`" in your report, as if unsure, is a missed opportunity — you have the exact filename, so name the exact format and explain what it implies.
 
 ### 2.2 The filename is social engineering
 
@@ -142,7 +143,7 @@ VirusTotal aggregates results from many antivirus engines plus sandbox behaviour
 
 ### 4.1 The detection ratio needs context
 
-"32/64 engines flagged it" is meaningful. "3/64" is not, on its own — a handful of detections, especially from engines that lean on heuristics, can indicate a generic packer rather than a specific threat. Look at *what* the engines named it. If several independent vendors give it a consistent family name, that is much stronger than a scattering of generic "Trojan.Generic" hits.
+A ratio of 32 out of 64 engines is meaningful. A ratio of 3 out of 64 is not, on its own — a handful of detections, especially from engines that lean on heuristics, can indicate a generic packer rather than a specific threat. Look at *what* the engines named it. If several independent vendors give it a consistent family name, that is much stronger than a scattering of generic "Trojan.Generic" hits.
 
 Always record the ratio in your report. "Highly malicious" is an opinion; "45/64" is evidence.
 
@@ -173,7 +174,7 @@ The C2 infrastructure listed on VirusTotal may have been sinkholed, taken down, 
 
 ---
 
-## 4A. Reading behavioural tags
+## 5. Reading behavioural tags
 
 **What happened:** VirusTotal listed a row of tags on the sample: `macros`, `auto-open`, `cve-2017-11882`, `exploit`, `run-file`, `write-file`, `executes-dropped-file`, `run-dll`, `exe-pattern`, `calls-wmi`, `detect-debug-environment`, `long-sleeps`, `checks-user-input`, `clipboard`.
 
@@ -202,7 +203,7 @@ Three practical consequences:
 
 ---
 
-## 5. Log correlation — turning intel into findings
+## 6. Log correlation — turning intel into findings
 
 **What happened:** C2 addresses from VirusTotal were checked against internal traffic logs. Host HOST-B (10.20.30.58) was found connecting to 209.197.3.8 on port 80.
 
@@ -210,7 +211,7 @@ Three practical consequences:
 
 This is the core Tier 1 skill: taking an external indicator and asking *did anything inside our network touch this?*
 
-### 5.1 Reading the connection
+### 6.1 Reading the connection
 
 ```
 Source:      10.20.30.58 : 49874      (HOST-B, ephemeral port)
@@ -222,13 +223,13 @@ Log source:  Proxy
 - **Destination port 80** is HTTP. Malware favours 80 and 443 because that traffic is expected to leave every network on earth. A connection to an odd port stands out; a connection to port 80 blends into the noise. This is why indicator-based hunting matters — you cannot spot this by looking for unusual ports.
 - **Port 80 means unencrypted.** This is useful: if you have full packet capture or proxy content logging, the actual C2 traffic may be readable. On port 443 it would not be. Note this for Tier 2.
 
-### 5.2 Match your timestamps
+### 6.2 Match your timestamps
 
 Every log entry you cite must fall in a window that makes sense relative to the alert. If your alert is dated 2021 and your proxy row is dated 2023, something is wrong — wrong log pulled, wrong timezone, or wrong environment. A reviewer will catch it, and it undermines everything else in the report.
 
 Timezones are the usual culprit. This alert is stamped `+03:00`; your proxy might log in UTC. A three-hour offset can make a connection appear to precede the alert that should have caused it. Normalise everything to one timezone and say which one you used.
 
-### 5.3 Don't over-claim
+### 6.3 Don't over-claim
 
 The evidence here supports two *separate* statements:
 
@@ -241,7 +242,7 @@ That gap — how did HOST-B get infected if HOST-A received the file? — is a g
 
 ---
 
-## 6. Device Action — the field that decides everything
+## 7. Device Action — the field that decides everything
 
 **What happened:** `Device Action: Allowed`
 
@@ -262,7 +263,7 @@ Analysts routinely forget to state this in the write-up. It is the first thing a
 
 ---
 
-## 7. MITRE ATT&CK — using it rather than citing it
+## 8. MITRE ATT&CK — using it rather than citing it
 
 **What happened:** The alert maps to `T1112 – Modify Registry`.
 
@@ -297,7 +298,7 @@ Laid out this way, the mapping is no longer decoration — it is a coverage chec
 
 ---
 
-## 8. Severity — when to raise it
+## 9. Severity — when to raise it
 
 **What happened:** Alert severity was Medium. The investigation supports High.
 
@@ -315,13 +316,13 @@ The rule that assigned "Medium" knew none of these things.
 
 ---
 
-## 9. Containment — scope and limits
+## 10. Containment — scope and limits
 
 **What happened:** Both hosts were network-isolated. The incident was escalated to Tier 2.
 
 **Why it matters:**
 
-### 9.1 Why isolation, and why not more
+### 10.1 Why isolation, and why not more
 
 Network isolation cuts the host off from the local network and the internet while leaving it powered on. It stops C2 communication, blocks data exfiltration, and prevents lateral movement — while preserving the machine's state for forensics.
 
@@ -333,17 +334,17 @@ What you should *not* do at Tier 1:
 
 Containment is a holding action. Eradication and recovery come after investigation.
 
-### 9.2 Containing on suspicion is correct
+### 10.2 Containing on suspicion is correct
 
 HOST-B's infection vector was unconfirmed at the time of containment. Isolating anyway was the right call: a host confirmed to be talking to C2 infrastructure is a live risk regardless of how it got there. The cost of isolating a machine for a few hours is far lower than the cost of letting an active compromise run while you finish investigating.
 
-### 9.3 Verify your host identifiers
+### 10.3 Verify your host identifiers
 
 Isolation is executed against an IP address or hostname. A single mistyped digit — `10.20.30.4` instead of `10.20.30.41` — isolates an uninvolved employee's workstation while the compromised host stays online. Read the IP off the alert field, copy it, and check it against the containment action before you submit.
 
 ---
 
-## 10. Writing the escalation
+## 11. Writing the escalation
 
 Tier 2 reads your report to decide where to start. Structure it so they can act without re-doing your work:
 
@@ -362,7 +363,7 @@ Two habits worth building:
 
 ---
 
-## 11. Summary — the reasoning chain
+## 12. Summary — the reasoning chain
 
 ```
 Alert fires on suspicious Excel file (hypothesis)
@@ -392,7 +393,7 @@ Verdict: True Positive
 
 ---
 
-## 12. Practice questions
+## 13. Practice questions
 
 Test yourself before reading back through:
 
